@@ -98,6 +98,13 @@
         ::-webkit-scrollbar {
             display: none;
         }
+
+        .lyrics-box {
+            display: none;
+            max-height: 190px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+        }
     </style>
 </head>
 <body class="w-screen h-screen overflow-hidden glow-bg select-none">
@@ -120,15 +127,10 @@
             <div class="absolute -bottom-12 -right-12 w-32 h-32 rounded-full border border-yellow-400/20"></div>
             
             <!-- Cute Flower & Infinity Icon -->
-            <div class="text-yellow-400 text-3xl mb-2">
-                <i class="fas fa-infinity"></i>
-            </div>
-            <p class="text-xs uppercase tracking-widest text-yellow-200/80 mb-1 font-semibold">Love You Always</p>
-            
             <h1 class="font-love text-5xl md:text-6xl text-yellow-300 my-2 text-glow-gold">
                 Flores Amarillas
             </h1>
-            <p class="font-romantic text-2xl text-yellow-100/90 mb-6">para ti ✨</p>
+            <p class="font-romantic text-2xl text-yellow-100/90 mb-6">para ti mamá</p>
             
             <!-- Sunflower Illustration Container -->
             <div class="w-36 h-36 my-2 relative flex items-center justify-center">
@@ -156,8 +158,52 @@
             </div>
 
             <p class="text-xs text-yellow-200/70 my-4 px-4 font-light leading-relaxed">
-                He creado un universo completo de estrellas y girasoles dorados solo para ti.
+                He creado un universo completo de estrellas doradas solo para ti.
             </p>
+
+            <div class="lyrics-box w-full mt-2 mb-4 px-4 text-left">
+                <p class="font-romantic text-2xl text-yellow-300 mb-2">Para ti mamá</p>
+                <p class="text-xs leading-relaxed text-yellow-100/90">
+                    Donde esté hoy y siempre<br>
+                    Yo te quiero conmigo<br>
+                    Necesito cuidado<br>
+                    Necesito de ti<br><br>
+                    Si me voy donde vaya<br>
+                    Yo te llevo conmigo<br>
+                    No me dejes ir solo<br>
+                    Necesito de ti<br><br>
+                    T&uacute; me sabes bien cuidar<br>
+                    T&uacute; me sabes bien guiar<br>
+                    Todo lo haces muy bien t&uacute;<br>
+                    Ser muy buena es tu virtud<br>
+                    &iquest;C&oacute;mo te puedo pagar<br>
+                    Todo lo que haces por m&iacute;?<br>
+                    Todo lo feliz que soy<br>
+                    Todo este grande amor<br><br>
+                    Solamente con mi vida<br>
+                    Ten mi vida, te la doy<br>
+                    Pero no me dejes nunca<br>
+                    Nunca, nunca<br>
+                    Te lo pido por favor<br><br>
+                    T&uacute; me sabes bien guiar<br>
+                    T&uacute; me sabes bien cuidar<br>
+                    Todo lo haces muy bien t&uacute;<br>
+                    Ser muy buena es tu virtud<br>
+                    &iquest;C&oacute;mo te puedo pagar<br>
+                    Todo lo que haces por m&iacute;?<br>
+                    Todo lo feliz que soy<br>
+                    Todo este inmenso amor<br><br>
+                    Solamente con mi vida<br>
+                    Ten mi vida, te la doy<br>
+                    Pero no me dejes nunca<br>
+                    Nunca, nunca<br>
+                    Te lo pido por favor<br><br>
+                    Oh no, oh no<br>
+                    Pero no me dejes nunca<br>
+                    Nunca, nunca<br>
+                    Te lo pido por favor
+                </p>
+            </div>
 
             <!-- Action Button -->
             <button id="start-btn" class="btn-gold font-semibold text-gray-950 px-8 py-3.5 rounded-full text-base tracking-wider uppercase flex items-center gap-2 cursor-pointer mt-2">
@@ -170,10 +216,10 @@
     <!-- TOP MAIN HEADER (Floating Message Overlay) -->
     <div id="main-header" class="fixed top-6 left-1/2 transform -translate-x-1/2 z-20 text-center pointer-events-none opacity-0 transition-opacity duration-1000">
         <h2 class="font-love text-5xl md:text-7xl text-yellow-300 text-glow-gold tracking-wide">
-            Te amo
+            Te amo mamá
         </h2>
         <p class="font-romantic text-lg md:text-xl text-yellow-200/90 tracking-widest mt-1">
-            Eres mi sol y mi universo 🌻
+            Eres mi sol y mi universo
         </p>
     </div>
 
@@ -198,9 +244,14 @@
 
         // Custom Love Messages to orbit in 3D Galaxy
         const loveMessages = [
-            "Te amo", "Mi girasol", "Para siempre", 
-            "Amor de mi vida", "Mi destino", "Eres mi luz", 
-            "Juntos por siempre", "Mi estrella", "Tú y Yo"
+            "Para ti mamá", "Donde este hoy y siempre", 
+            "Yo te quiero conmigo", "Necesito cuidado", "Necesito de ti", 
+            "Si me voy donde vaya", "Yo te llevo conmigo", "No me dejes ir solo",
+            "Todo lo haces muy bien tu", "Ser muy buena es tu virtud",
+            "Todo lo feliz que soy", "Todo este inmenso amor",
+            "Solamente con mi vida", "Ten mi vida, te la doy",
+            "Pero no me dejes nunca", "Nunca, nunca",
+            "Te lo pido por favor"
         ];
 
         // Initialize Application
@@ -469,19 +520,22 @@
 
         function createTextSprite(text) {
             const canvas = document.createElement('canvas');
-            canvas.width = 512;
-            canvas.height = 128;
+            canvas.width = 768;
+            canvas.height = 180;
             const ctx = canvas.getContext('2d');
 
-            ctx.font = 'Bold 44px "Dancing Script", "Great Vibes", cursive';
+            ctx.font = 'Bold 58px "Dancing Script", "Great Vibes", cursive';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
 
-            // Glow Effect
+            // Dark outline plus golden glow for readability over the galaxy.
+            ctx.lineWidth = 7;
+            ctx.strokeStyle = 'rgba(35, 12, 0, 0.95)';
             ctx.shadowColor = '#FFD700';
-            ctx.shadowBlur = 15;
+            ctx.shadowBlur = 26;
             ctx.fillStyle = '#FFFFFF';
-            ctx.fillText(text, 256, 64);
+            ctx.strokeText(text, 384, 90);
+            ctx.fillText(text, 384, 90);
 
             const texture = new THREE.CanvasTexture(canvas);
             const spriteMaterial = new THREE.SpriteMaterial({
@@ -491,7 +545,7 @@
             });
 
             const sprite = new THREE.Sprite(spriteMaterial);
-            sprite.scale.set(8, 2, 1);
+            sprite.scale.set(11, 3.1, 1);
             return sprite;
         }
 
