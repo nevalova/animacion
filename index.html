@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
     <title>Flores Amarillas para Ti 🌻✨</title>
     
     <!-- Tailwind CSS -->
@@ -105,17 +106,66 @@
             overflow-y: auto;
             scrollbar-width: thin;
         }
+
+        #spotify-layer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 152px;
+            overflow: hidden;
+            opacity: 0.07;
+            filter: brightness(0.08) contrast(0.65) saturate(0.25) blur(5px);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        #spotify-layer iframe {
+            width: 100%;
+            height: 152px;
+            border: 0;
+            opacity: 0.18;
+            filter: brightness(0.05) blur(6px);
+        }
+
+        #spotify-layer::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(rgba(5, 2, 10, 0.94), rgba(5, 2, 10, 0.98));
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            pointer-events: none;
+        }
+
+        #music-notice {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            z-index: 50;
+            max-width: min(320px, calc(100vw - 40px));
+            padding: 14px;
+            border-radius: 16px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        #music-notice a { color: #fde047; text-decoration: underline; }
     </style>
 </head>
 <body class="w-screen h-screen overflow-hidden glow-bg select-none">
 
-    <!-- Audio Element (Web Audio API synth fallback if blocked) -->
-    <audio id="bg-music" loop preload="auto">
-        <source src="https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=romantic-piano-112199.mp3" type="audio/mpeg">
-    </audio>
+    <!-- Spotify stays mounted below the galaxy, with the game-style masked embed. -->
+    <div id="spotify-layer" aria-hidden="true" inert>
+        <div id="spotify-player"></div>
+    </div>
+    <div id="music-notice" class="card-glass" role="status" hidden>
+        <p id="music-message"></p>
+        <a href="https://open.spotify.com/track/06OuHuxMPUuLL8U6t1oGOj" target="_blank" rel="noopener noreferrer">Escuchar en Spotify</a>
+    </div>
 
     <!-- Music Toggle Button (Upper Right) -->
-    <button id="music-btn" class="fixed top-5 right-5 z-40 w-12 h-12 rounded-full card-glass flex items-center justify-center text-yellow-300 hover:text-white transition-all duration-300 focus:outline-none">
+    <button id="music-btn" aria-label="Reproducir música" aria-pressed="false" title="Reproducir música" class="fixed top-5 right-5 z-40 w-12 h-12 rounded-full card-glass flex items-center justify-center text-yellow-300 hover:text-white transition-all duration-300 focus:outline-none">
         <i id="music-icon" class="fas fa-music text-lg"></i>
     </button>
 
@@ -236,6 +286,123 @@
     <div id="canvas-container" class="w-full h-full absolute inset-0 z-10"></div>
 
     <script>
+        const galaxyMusic = (() => {
+            let player;
+            let ready = false;
+            let requested = false;
+            let waitingForPlayback = false;
+            let finished = false;
+            let failure = '';
+            let playTimer;
+            const button = document.getElementById('music-btn');
+            const icon = document.getElementById('music-icon');
+            const notice = document.getElementById('music-notice');
+
+            function showNotice(message) {
+                document.getElementById('music-message').textContent = message;
+                notice.hidden = false;
+            }
+
+            function showState(playing, loading = false) {
+                icon.className = loading ? 'fas fa-spinner fa-spin text-yellow-300' :
+                    playing ? 'fas fa-pause text-yellow-300' : 'fas fa-music text-yellow-300';
+                const label = loading ? 'Cargando música' :
+                    playing ? 'Pausar música' : 'Reproducir música';
+                button.setAttribute('aria-label', label);
+                button.setAttribute('aria-pressed', String(playing));
+                button.title = label;
+            }
+
+            function stopWithNotice(message) {
+                clearTimeout(playTimer);
+                requested = false;
+                waitingForPlayback = false;
+                if (ready) player.pause();
+                showState(false);
+                showNotice(message);
+            }
+
+            function play() {
+                if (failure) {
+                    showNotice(failure);
+                    return;
+                }
+                requested = true;
+                waitingForPlayback = true;
+                notice.hidden = true;
+                showState(false, true);
+                clearTimeout(playTimer);
+                playTimer = setTimeout(() => stopWithNotice(
+                    'Spotify no pudo iniciar la canción. Toca el botón de música para reintentar.'
+                ), 20000);
+                if (ready) {
+                    try {
+                        if (finished) {
+                            finished = false;
+                            player.restart();
+                        } else {
+                            player.resume();
+                        }
+                    } catch (_) {
+                        stopWithNotice('No se pudo iniciar Spotify. Toca el botón de música para reintentar.');
+                    }
+                }
+            }
+
+            function pause() {
+                requested = false;
+                waitingForPlayback = false;
+                clearTimeout(playTimer);
+                if (ready) player.pause();
+                notice.hidden = true;
+                showState(false);
+            }
+
+            window.onSpotifyIframeApiReady = (IFrameAPI) => {
+                IFrameAPI.createController(document.getElementById('spotify-player'), {
+                    width: '100%',
+                    height: 152,
+                    uri: 'spotify:track:06OuHuxMPUuLL8U6t1oGOj'
+                }, (controller) => {
+                    player = controller;
+                    player.addListener('ready', () => {
+                        ready = true;
+                        if (requested) play();
+                    });
+                    player.addListener('playback_update', (event) => {
+                        const state = event.data;
+                        if (!state.isPaused && !state.isBuffering) {
+                            if (!requested) {
+                                player.pause();
+                                return;
+                            }
+                            clearTimeout(playTimer);
+                            waitingForPlayback = false;
+                            notice.hidden = true;
+                            showState(true);
+                        } else if (state.isPaused && !waitingForPlayback) {
+                            clearTimeout(playTimer);
+                            finished = state.duration > 0 && state.position >= state.duration - 500;
+                            requested = false;
+                            showState(false);
+                        }
+                    });
+                });
+            };
+
+            const api = document.createElement('script');
+            api.src = 'https://open.spotify.com/embed/iframe-api/v1';
+            api.async = true;
+            api.onerror = () => {
+                failure = 'No se pudo conectar con Spotify. Revisa tu conexión y recarga la página.';
+                if (requested) stopWithNotice(failure);
+            };
+            document.head.appendChild(api);
+            return { play, toggle: () => requested ? pause() : play() };
+        })();
+    </script>
+
+    <script>
         // Global Variables
         let scene, camera, renderer, controls;
         let galaxyGroup, coreMesh, particleSystem, flowersGroup, textSpritesGroup;
@@ -255,7 +422,7 @@
         ];
 
         // Initialize Application
-        window.addEventListener('load', () => {
+        window.addEventListener('DOMContentLoaded', () => {
             initThreeJS();
             setupEvents();
             animate();
@@ -582,10 +749,6 @@
             const mainHeader = document.getElementById('main-header');
             const uiControls = document.getElementById('ui-controls');
             const musicBtn = document.getElementById('music-btn');
-            const bgMusic = document.getElementById('bg-music');
-            const musicIcon = document.getElementById('music-icon');
-
-            let isPlaying = false;
 
             // Start Button Click Action
             startBtn.addEventListener('click', () => {
@@ -601,55 +764,14 @@
                     uiControls.classList.add('fade-in');
                 }, 1000);
 
-                // Play Audio
-                bgMusic.play().then(() => {
-                    isPlaying = true;
-                }).catch(() => {
-                    // Fallback synthesizer if browser blocks audio autoplay
-                    playFallbackSynth();
-                    isPlaying = true;
-                });
+                galaxyMusic.play();
             });
 
             // Music Toggle Button
-            musicBtn.addEventListener('click', () => {
-                if (isPlaying) {
-                    bgMusic.pause();
-                    musicIcon.className = 'fas fa-music-slash text-red-400';
-                    isPlaying = false;
-                } else {
-                    bgMusic.play().catch(() => playFallbackSynth());
-                    musicIcon.className = 'fas fa-music text-yellow-300';
-                    isPlaying = true;
-                }
-            });
+            musicBtn.addEventListener('click', () => galaxyMusic.toggle());
 
             // Window Resize
             window.addEventListener('resize', onWindowResize);
-        }
-
-        // Simple Ambient Synthesizer Fallback if audio URL fails
-        function playFallbackSynth() {
-            try {
-                const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                const notes = [261.63, 329.63, 392.00, 493.88, 523.25]; // C E G B C
-                let noteIdx = 0;
-
-                setInterval(() => {
-                    if (!isStarted) return;
-                    const osc = ctx.createOscillator();
-                    const gain = ctx.createGain();
-                    osc.type = 'sine';
-                    osc.frequency.setValueAtTime(notes[noteIdx % notes.length], ctx.currentTime);
-                    gain.gain.setValueAtTime(0.05, ctx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 2.5);
-                    osc.connect(gain);
-                    gain.connect(ctx.destination);
-                    osc.start();
-                    osc.stop(ctx.currentTime + 2.5);
-                    noteIdx++;
-                }, 800);
-            } catch(e) { console.log('Audio Context Error', e); }
         }
 
         function onWindowResize() {
